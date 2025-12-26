@@ -13,7 +13,7 @@ fn main() -> eframe::Result<()> {
     workers::cpu(sender);
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
+        viewport: eframe::egui::ViewportBuilder::default()
         .with_inner_size([800.0, 600.0]),
         ..Default::default()
     };
@@ -21,6 +21,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Rust System Monitor",
         options,
-        Box::new(|_cc| Box::new(SystemMonitorApp::new(receiver))),
+        Box::new(|_cc| Ok(Box::new(SystemMonitorApp::new(receiver)))),
     )
 }
