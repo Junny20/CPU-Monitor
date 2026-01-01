@@ -7,11 +7,14 @@ pub fn get_cpu_exponential_moving_average(previous_ema: Option<f32>, usage: f32)
     }
 }
 
-pub fn get_per_core_exponential_moving_average(previous_emas: &mut Vec<Option<f32>>, usage: &Vec<f32>) {
+pub fn get_per_core_exponential_moving_average(
+    previous_emas: &mut Vec<Option<f32>>,
+    usage: &Vec<f32>,
+) {
     for (index, ema) in previous_emas.iter_mut().enumerate() {
         *ema = match *ema {
             Some(ema) => Some(calculate_exponential_moving_average(ema, usage[index])),
-            None => Some(usage[index])
+            None => Some(usage[index]),
         }
     }
 }

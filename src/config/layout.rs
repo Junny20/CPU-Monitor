@@ -1,3 +1,5 @@
+pub const APP_WIDTH_PX: f32 = 800.0;
+pub const APP_HEIGHT_PX: f32 = 600.0;
 pub const LEFT_CELL_WIDTH_PX: f32 = 20.0;
 pub const CELL_HEIGHT_PX: f32 = 60.0;
 pub const CELL_CORNER_RADIUS_PX: f32 = 4.0;

@@ -1,5 +1,5 @@
-use eframe::egui::{Pos2, Rect};
 use crate::config::style::RECT_SHRINK_AMNT;
+use eframe::egui::{Pos2, Rect};
 
 pub fn make_point(index: usize, value: &f32, n: usize, rect: &Rect) -> Pos2 {
     let plot_rect = rect.shrink(RECT_SHRINK_AMNT);

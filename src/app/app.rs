@@ -1,5 +1,5 @@
 use crate::{
-    app::update::update,
+    app::{self, update::update},
     config::{
         app_variables::{CORES_UPPER_LIMIT, MAX_LINE_GRAPH_POINTS},
         layout::{
@@ -8,27 +8,36 @@ use crate::{
         },
         style::HALF_OPACITY,
     },
-    cpusnapshot::CpuSnapshot,
     data::exponential_moving_average::{
         get_cpu_exponential_moving_average, get_per_core_exponential_moving_average,
     },
     graph::{draw::draw_ui_graph, style::get_color},
+    snapshots::{
+        cpu_snapshot_struct::CpuSnapshot,
+        processes_snapshot_struct::ProcessesSnapshot,
+        system_snapshot_struct::{self, SystemSnapshot},
+    },
 };
 
 use eframe::egui::{
-    vec2, CentralPanel, Color32, Context, ProgressBar, Response, ScrollArea, Sense, UiBuilder, Vec2,
+    vec2, Align, CentralPanel, Color32, Context, Layout, ProgressBar, Response, ScrollArea, Sense,
+    UiBuilder, Vec2,
 };
 
 use std::{collections::VecDeque, sync::mpsc::Receiver};
 
 pub struct Channels {
     pub cpu_snapshot_receiver: Receiver<CpuSnapshot>,
+    pub system_snapshot_receiver: Receiver<SystemSnapshot>,
+    pub processes_snapshot_receiver: Receiver<ProcessesSnapshot>,
 }
 
 impl Channels {
-    pub fn new(cpu_snapshot_receiver: Receiver<CpuSnapshot>) -> Channels {
+    pub fn new(app_receivers: AppReceivers) -> Channels {
         Channels {
-            cpu_snapshot_receiver,
+            cpu_snapshot_receiver: app_receivers.cpu_snapshot_receiver,
+            system_snapshot_receiver: app_receivers.system_snapshot_receiver,
+            processes_snapshot_receiver: app_receivers.processes_snapshot_receiver
         }
     }
 }
@@ -113,110 +122,6 @@ impl CpuMonitor {
         }
     }
 
-    pub fn cpu_monitor_render_ui(&self, ctx: &Context) {
-        // the show method takes a closure and builds the gui
-        CentralPanel::default().show(ctx, |ui| {
-            ui.heading("CPU Monitor");
-            ui.add_space(TEXT_SPACING_PX);
-
-            // ===== OVERALL CPU USAGE =====
-            ui.group(|ui| {
-                ui.horizontal(|ui| {
-                    let left_cell: Vec2 = vec2(LEFT_CELL_WIDTH_PX, CELL_HEIGHT_PX);
-                    let (rect, _) = ui.allocate_exact_size(left_cell, Sense::hover());
-
-                    ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
-                        // space to align with CPU Core labels
-                        ui.label("CPU ");
-                        ui.add_space(TEXT_SPACING_PX);
-
-                        if let Some(overall_cpu_usage) = self.overall_cpu_history.back() {
-                            // value formatted to one decimal place
-                            ui.monospace(format!("{:>5.1}%", overall_cpu_usage));
-                            ui.add_space(PROGRESS_BAR_SPACING_PX); // magic nums
-
-                            let color: Color32 = get_color(*overall_cpu_usage, HALF_OPACITY);
-
-                            let progress_bar: ProgressBar = self.build_progress_bar(
-                                *overall_cpu_usage,
-                                PROGRESS_BAR_WIDTH_PX,
-                                PROGRESS_BAR_HEIGHT_PX,
-                                PROGRESS_BAR_ROUNDING_PX,
-                                color,
-                            );
-
-                            let _response: Response = ui.add(progress_bar);
-
-                            ui.add_space(TEXT_SPACING_PX);
-                        }
-                    });
-
-                    let right_cell: Vec2 = vec2(ui.available_width(), CELL_HEIGHT_PX);
-                    let (rect, _) = ui.allocate_exact_size(right_cell, Sense::hover());
-
-                    draw_ui_graph(
-                        &rect,
-                        ui,
-                        &self.overall_cpu_history,
-                        Some(&self.overall_ema_cpu_history),
-                    );
-                });
-            });
-
-            ui.add_space(TEXT_SPACING_PX);
-
-            ScrollArea::vertical().show(ui, |ui| {
-                // ===== PER CORE CPU USAGE =====
-                if let Some(per_core_history) = &self.per_core_cpu_history {
-                    for (index, history) in per_core_history.iter().enumerate() {
-                        let usage: &f32 = history.back().unwrap(); // Check if this always works!
-
-                        ui.group(|ui| {
-                            ui.horizontal(|ui| {
-                                let left_cell: Vec2 = vec2(LEFT_CELL_WIDTH_PX, CELL_HEIGHT_PX);
-                                let (rect, _) = ui.allocate_exact_size(left_cell, Sense::hover());
-
-                                ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
-                                    ui.label(format!("Core {}", index));
-                                    // value formatted to one decimal place
-                                    ui.monospace(format!("{:>5.1}%", *usage));
-                                    ui.add_space(PROGRESS_BAR_SPACING_PX);
-
-                                    let color: Color32 = get_color(*usage, HALF_OPACITY);
-
-                                    let progress_bar: ProgressBar = self.build_progress_bar(
-                                        *usage,
-                                        PROGRESS_BAR_WIDTH_PX,
-                                        PROGRESS_BAR_HEIGHT_PX,
-                                        PROGRESS_BAR_ROUNDING_PX,
-                                        color,
-                                    );
-
-                                    let _response: Response = ui.add(progress_bar);
-
-                                    ui.add_space(TEXT_SPACING_PX);
-                                });
-
-                                let desired_size = vec2(ui.available_width(), CELL_HEIGHT_PX);
-                                let (rect, _) =
-                                    ui.allocate_exact_size(desired_size, Sense::hover());
-
-                                draw_ui_graph(
-                                    &rect,
-                                    ui,
-                                    history,
-                                    Some(&self.overall_ema_cpu_history),
-                                );
-                            });
-                        });
-
-                        ui.add_space(TEXT_SPACING_PX);
-                    }
-                }
-            });
-        });
-    }
-
     pub fn build_progress_bar(
         &self,
         value: f32,
@@ -234,16 +139,82 @@ impl CpuMonitor {
     }
 }
 
+pub struct SystemMonitor {
+    pub system_name: String,
+    pub system_version: String,
+    pub system_architecture: String,
+    pub host_name: String,
+}
+
+impl SystemMonitor {
+    pub fn build_from_snapshot(system_snapshot_struct: SystemSnapshot) -> SystemMonitor {
+        SystemMonitor {
+            system_name: system_snapshot_struct.system_name,
+            system_version: system_snapshot_struct.system_version,
+            system_architecture: system_snapshot_struct.system_architecture,
+            host_name: system_snapshot_struct.host_name,
+        }
+    }
+
+    pub fn new() -> SystemMonitor {
+        SystemMonitor {
+            system_name: String::from("N/A"),
+            system_version: String::from("N/A"),
+            system_architecture: String::from("N/A"),
+            host_name: String::from("N/A"),
+        }
+    }
+}
+
+pub struct ProcessMonitor {
+    pub processes: usize,
+}
+
+impl ProcessMonitor {
+    pub fn build_from_snapshot(processes_snapshot_struct: ProcessesSnapshot) -> ProcessMonitor {
+        ProcessMonitor { processes: processes_snapshot_struct.processes }
+    }
+
+    fn new() -> ProcessMonitor {
+        ProcessMonitor { processes: 0 }
+    }
+}
+
+pub struct AppReceivers {
+    pub cpu_snapshot_receiver: Receiver<CpuSnapshot>,
+    pub system_snapshot_receiver: Receiver<SystemSnapshot>,
+    pub processes_snapshot_receiver: Receiver<ProcessesSnapshot>,
+}
+
+// todo: this should return a result, refactor...
+impl AppReceivers {
+    pub fn build(
+        cpu_snapshot_receiver: Receiver<CpuSnapshot>,
+        system_snapshot_receiver: Receiver<SystemSnapshot>,
+        processes_snapshot_receiver: Receiver<ProcessesSnapshot>,
+    ) -> AppReceivers {
+        AppReceivers {
+            cpu_snapshot_receiver,
+            system_snapshot_receiver,
+            processes_snapshot_receiver,
+        }
+    }
+}
+
 pub struct AppMonitor {
     pub channels: Channels,
     pub cpu_monitor: CpuMonitor,
+    pub system_monitor: SystemMonitor,
+    pub process_monitor: ProcessMonitor,
 }
 
 impl AppMonitor {
-    pub fn new(cpu_snapshot_receiver: Receiver<CpuSnapshot>) -> Self {
+    pub fn new(app_receivers: AppReceivers) -> Self {
         Self {
-            channels: Channels::new(cpu_snapshot_receiver),
+            channels: Channels::new(app_receivers),
             cpu_monitor: CpuMonitor::new(),
+            system_monitor: SystemMonitor::new(),
+            process_monitor: ProcessMonitor::new(),
         }
     }
 }
