@@ -1,3 +1,7 @@
+//! Drawing utilities.
+//!
+//! Provides functions for rendering graphs, progress bars, and UI elements.
+
 use crate::config::{
     app_variables::LAST_INDEX,
     layout::{CELL_CORNER_RADIUS_PX, LINE_THICKNESS_ONE_PX},
@@ -7,9 +11,18 @@ use crate::graph::{
     geometry::make_point,
     style::{find_stroke_width, get_color},
 };
-use eframe::egui::{Color32, Painter, Pos2, Rangef, Rect, Stroke, StrokeKind, Ui};
+use eframe::egui::{Color32, Painter, Pos2, ProgressBar, Rangef, Rect, Stroke, StrokeKind, Ui};
 use std::collections::VecDeque;
 
+/// Draws a UI graph with background, border, and data lines.
+/// 
+/// Renders a graph rectangle with optional EMA overlay.
+/// 
+/// * Parameters
+/// `rect` The rectangle to draw in
+/// `ui` The UI context
+/// `history` The data history to plot
+/// `ema_history` Optional EMA history to overlay
 pub fn draw_ui_graph(
     rect: &Rect,
     ui: &mut Ui,
@@ -41,6 +54,13 @@ pub fn draw_ui_graph(
     }
 }
 
+/// Draws a line graph from the given data history.
+/// 
+/// * Parameters
+/// `rect` The rectangle bounds
+/// `history` The data points to plot
+/// `painter` The painter to use
+/// `opacity` The opacity for the lines
 pub fn draw_line_graph(rect: &Rect, history: &VecDeque<f32>, painter: &Painter, opacity: u8) {
     let n: usize = history.len();
     let points: Vec<Pos2> = history
@@ -68,6 +88,12 @@ pub fn draw_line_graph(rect: &Rect, history: &VecDeque<f32>, painter: &Painter, 
     }
 }
 
+/// Draws a horizontal dotted line.
+/// 
+/// * Parameters
+/// `rect` The bounding rectangle
+/// `y` The y-coordinate for the line
+/// `painter` The painter to use
 pub fn draw_dotted_hline(rect: &Rect, y: f32, painter: &Painter) {
     let mut dotted: Vec<Rangef> = Vec::new();
     let mut start: f32 = rect.left();
@@ -82,4 +108,30 @@ pub fn draw_dotted_hline(rect: &Rect, y: f32, painter: &Painter) {
     for range in dotted.into_iter() {
         painter.hline(range, y, Stroke::new(LINE_THICKNESS_ONE_PX, Color32::GRAY));
     }
+}
+
+/// Builds a progress bar widget.
+/// 
+/// * Parameters
+/// `value` The current value (0-100)
+/// `width` Desired width
+/// `height` Desired height
+/// `rounding` Corner radius
+/// `color` Fill color
+/// 
+/// * Returns
+/// A configured ProgressBar
+pub fn build_progress_bar(
+    value: f32,
+    width: f32,
+    height: f32,
+    rounding: f32,
+    color: Color32,
+) -> ProgressBar {
+    ProgressBar::new(value / 100 as f32)
+        .desired_width(width)
+        .desired_height(height)
+        .fill(color)
+        .corner_radius(rounding)
+        .show_percentage()
 }

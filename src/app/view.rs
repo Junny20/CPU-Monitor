@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    app::app::AppMonitor,
+    app::app_monitor::AppMonitor,
     config::{
         app_variables::REFRESH_MILLISECONDS,
         layout::{
@@ -10,43 +10,44 @@ use crate::{
         },
         style::HALF_OPACITY,
     },
-    graph::{draw::draw_ui_graph, style::get_color},
-    snapshots::{cpu_snapshot_struct::CpuSnapshot, processes_snapshot_struct::ProcessesSnapshot, system_snapshot_struct::SystemSnapshot},
+    graph::{
+        draw::{build_progress_bar, draw_ui_graph},
+        style::get_color,
+    },
 };
 
 use eframe::egui::{
-    vec2, Align, CentralPanel, Color32, Context, Layout, ProgressBar, Response, ScrollArea, Sense,
-    UiBuilder, Vec2,
+    Align, CentralPanel, Color32, Context, Layout, ProgressBar, Response, ScrollArea, Sense,
+    UiBuilder, Vec2, vec2,
 };
+use std::sync::mpsc::Receiver;
 
-pub fn try_receive_system_snapshot(app_monitor: &mut AppMonitor) -> Option<SystemSnapshot> {
-    if let Ok(system_snapshot) = app_monitor.channels.system_snapshot_receiver.try_recv() {
-        Some(system_snapshot)
-    } else {
-        None
-    }
-}
+/// Attempts to receive the latest snapshot from a receiver.
+///
+/// Drains the channel to get the most recent snapshot, discarding older ones.
+///
+/// * Parameters
+/// `receiver` Reference to the receiver channel
+///
+/// * Returns
+/// Some(T) if at least one snapshot was available, None otherwise
+pub fn try_receive_latest_snapshot<T>(receiver: &Receiver<T>) -> Option<T> {
+    let mut latest: Option<T> = None;
 
-pub fn try_receive_latest_cpu_snapshot(app_monitor: &mut AppMonitor) -> Option<CpuSnapshot> {
-    let mut latest: Option<CpuSnapshot> = None;
-
-    while let Ok(cpu_snapshot) = app_monitor.channels.cpu_snapshot_receiver.try_recv() {
-        latest = Some(cpu_snapshot);
-    }
-
-    latest
-}
-
-pub fn try_receive_latest_processes_snapshot(app_monitor: &mut AppMonitor) -> Option<ProcessesSnapshot> {
-    let mut latest: Option<ProcessesSnapshot> = None;
-
-    while let Ok(processes_snapshot) = app_monitor.channels.processes_snapshot_receiver.try_recv() {
-        latest = Some(processes_snapshot);
+    while let Ok(snapshot) = receiver.try_recv() {
+        latest = Some(snapshot);
     }
 
     latest
-} // TODO: MAKE THIS FUNCTION GENERIC!
+}
 
+/// Renders the main user interface.
+///
+/// Builds the GUI layout including headers, CPU usage displays, and graphs.
+///
+/// * Parameters
+/// `ctx` The egui context
+/// `app_monitor` Mutable reference to the app monitor for data access
 pub fn render_ui(ctx: &Context, app_monitor: &mut AppMonitor) {
     // the show method takes a closure and builds the gui
     CentralPanel::default().show(ctx, |ui| {
@@ -73,7 +74,10 @@ pub fn render_ui(ctx: &Context, app_monitor: &mut AppMonitor) {
                     |ui| {
                         ui.label("Average Usage: ");
                         ui.add_space(50.0);
-                        ui.label(format!("Processes: {}", app_monitor.process_monitor.processes));
+                        ui.label(format!(
+                            "Processes: {}",
+                            app_monitor.process_monitor.processes
+                        ));
                         ui.add_space(50.0);
                         ui.label(format!(
                             "OS: {} {} {}",
@@ -82,6 +86,7 @@ pub fn render_ui(ctx: &Context, app_monitor: &mut AppMonitor) {
                             app_monitor.system_monitor.system_architecture
                         ));
                         ui.add_space(50.0);
+                        ui.label(format!("{}", app_monitor.system_monitor.host_name));
                     },
                 )
             })
@@ -107,7 +112,7 @@ pub fn render_ui(ctx: &Context, app_monitor: &mut AppMonitor) {
 
                         let color: Color32 = get_color(*overall_cpu_usage, HALF_OPACITY);
 
-                        let progress_bar: ProgressBar = app_monitor.cpu_monitor.build_progress_bar(
+                        let progress_bar: ProgressBar = build_progress_bar(
                             *overall_cpu_usage,
                             PROGRESS_BAR_WIDTH_PX,
                             PROGRESS_BAR_HEIGHT_PX,
@@ -154,14 +159,13 @@ pub fn render_ui(ctx: &Context, app_monitor: &mut AppMonitor) {
 
                                 let color: Color32 = get_color(*usage, HALF_OPACITY);
 
-                                let progress_bar: ProgressBar =
-                                    app_monitor.cpu_monitor.build_progress_bar(
-                                        *usage,
-                                        PROGRESS_BAR_WIDTH_PX,
-                                        PROGRESS_BAR_HEIGHT_PX,
-                                        PROGRESS_BAR_ROUNDING_PX,
-                                        color,
-                                    );
+                                let progress_bar: ProgressBar = build_progress_bar(
+                                    *usage,
+                                    PROGRESS_BAR_WIDTH_PX,
+                                    PROGRESS_BAR_HEIGHT_PX,
+                                    PROGRESS_BAR_ROUNDING_PX,
+                                    color,
+                                );
 
                                 let _response: Response = ui.add(progress_bar);
 
@@ -187,6 +191,12 @@ pub fn render_ui(ctx: &Context, app_monitor: &mut AppMonitor) {
     });
 }
 
+/// Requests a repaint of the GUI after a specified interval.
+///
+/// Ensures the UI updates regularly for real-time monitoring.
+///
+/// * Parameters
+/// `ctx` The egui context
 pub fn request_repaint(ctx: &Context) {
     // refreshes the gui every REFRESH_MILLISECONDS milliseconds
     ctx.request_repaint_after(Duration::from_millis(REFRESH_MILLISECONDS));

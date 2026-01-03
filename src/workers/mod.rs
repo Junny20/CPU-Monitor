@@ -1,3 +1,7 @@
+//! Background workers.
+//!
+//! Contains functions that run in separate threads to collect system data.
+
 pub mod processes;
 pub mod send_system_snapshot;
 
@@ -7,6 +11,12 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use sysinfo::System;
 
+/// Starts a background worker to collect CPU usage snapshots.
+/// 
+/// Spawns a thread that periodically sends CpuSnapshot data via the channel.
+/// 
+/// * Parameters
+/// `sender` The channel sender for CpuSnapshot data
 pub fn send_cpu_snapshot(sender: Sender<CpuSnapshot>) {
     let mut sys = System::new();
 

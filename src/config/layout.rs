@@ -1,3 +1,7 @@
+//! Layout configuration.
+//!
+//! Defines pixel dimensions and spacing constants for the GUI layout.
+
 pub const APP_WIDTH_PX: f32 = 800.0;
 pub const APP_HEIGHT_PX: f32 = 600.0;
 pub const LEFT_CELL_WIDTH_PX: f32 = 20.0;

@@ -1,8 +1,18 @@
+//! System snapshot worker.
+//!
+//! Background worker for collecting system information data.
+
 use crate::snapshots::system_snapshot_struct::SystemSnapshot;
 use std::sync::mpsc::Sender;
 use std::thread;
 use sysinfo::System;
 
+/// Starts a background worker to collect system information snapshot.
+/// 
+/// Spawns a thread that collects system data and sends a SystemSnapshot via the channel.
+/// 
+/// * Parameters
+/// `sender` The channel sender for SystemSnapshot data
 pub fn send_system_snapshot(sender: Sender<SystemSnapshot>) {
     thread::spawn(move || {
         let mut system_snapshot: SystemSnapshot = SystemSnapshot::new();

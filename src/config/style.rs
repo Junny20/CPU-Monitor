@@ -1,3 +1,7 @@
+//! Style configuration.
+//!
+//! Defines constants for visual styling, including line thicknesses and color thresholds.
+
 pub const DOTTED_LINE_LENGTH_PX: f32 = 2.5;
 pub const DOTTED_LINE_GAP_PX: f32 = 5.0;
 pub const RECT_SHRINK_AMNT: f32 = 4.0;

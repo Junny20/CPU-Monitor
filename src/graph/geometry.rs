@@ -1,6 +1,22 @@
+//! Geometric utilities.
+//!
+//! Provides functions for calculating positions and coordinates for graph rendering.
+
 use crate::config::style::RECT_SHRINK_AMNT;
 use eframe::egui::{Pos2, Rect};
 
+/// Calculates the position of a data point in the graph.
+/// 
+/// Maps data index and value to screen coordinates within the rectangle.
+/// 
+/// * Parameters
+/// `index` The data point index
+/// `value` The data value (0-100)
+/// `n` Total number of points
+/// `rect` The bounding rectangle
+/// 
+/// * Returns
+/// The calculated position
 pub fn make_point(index: usize, value: &f32, n: usize, rect: &Rect) -> Pos2 {
     let plot_rect = rect.shrink(RECT_SHRINK_AMNT);
     let plot_rect_height: f32 = plot_rect.bottom() - plot_rect.top();

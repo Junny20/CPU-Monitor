@@ -1,3 +1,8 @@
+//! Main entry point for the CPU Monitor application.
+//!
+//! This module initializes the application, sets up communication channels,
+//! starts background workers for data collection, and launches the GUI.
+
 mod app;
 mod channel;
 mod config;
@@ -6,17 +11,27 @@ mod graph;
 mod snapshots;
 mod workers;
 
-use app::app::AppMonitor;
+use app::app_monitor::AppMonitor;
 use channel::Channel;
 use snapshots::cpu_snapshot_struct::CpuSnapshot;
 use workers::{send_cpu_snapshot, send_system_snapshot::send_system_snapshot};
 
 use crate::{
-    app::app::AppReceivers, config::layout::{APP_HEIGHT_PX, APP_WIDTH_PX}, snapshots::{
+    app::app_receivers::AppReceivers,
+    config::layout::{APP_HEIGHT_PX, APP_WIDTH_PX},
+    snapshots::{
         processes_snapshot_struct::ProcessesSnapshot, system_snapshot_struct::SystemSnapshot,
-    }, workers::processes::send_processes_snapshot
+    },
+    workers::processes::send_processes_snapshot,
 };
 
+/// Main function.
+/// 
+/// Initializes communication channels for CPU, system, and processes data,
+/// starts background workers to collect snapshots, and runs the eframe GUI application.
+/// 
+/// * Returns
+/// Result indicating success or failure of the application
 fn main() -> eframe::Result<()> {
     let cpu_snapshot_channel: Channel<CpuSnapshot> = Channel::new();
     let (cpu_sender, cpu_receiver) = cpu_snapshot_channel.split();
@@ -31,7 +46,8 @@ fn main() -> eframe::Result<()> {
     send_processes_snapshot(processes_sender);
 
     let options = eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default().with_inner_size([APP_WIDTH_PX, APP_HEIGHT_PX]),
+        viewport: eframe::egui::ViewportBuilder::default()
+            .with_inner_size([APP_WIDTH_PX, APP_HEIGHT_PX]),
         ..Default::default()
     };
 
