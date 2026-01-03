@@ -2,13 +2,8 @@
 
 A real-time CPU monitoring application built with Rust.
 
-## Features
+Tracks overall CPU usage and individual core performance with multi producer single consumer channels.
 
-- **Real-time CPU monitoring**: Tracks overall CPU usage and individual core performance
-- **Visual graphs**: Line charts showing CPU usage over time with exponential moving averages
-- **Process tracking**: Displays the current number of running processes
-- **System information**: Shows OS details, architecture, and hostname
-- **Color-coded indicators**: Green for low usage, yellow for medium, red for high
 
 ## Screenshots in reverse chronological order
 
